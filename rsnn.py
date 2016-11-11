@@ -21,15 +21,16 @@ class NNError(Exception):
 class simplenn:
 
     def sigma(self, x):
-        '''neuron function'''
+        '''neuron function - sigmodial function'''
         return 1/(1+np.e**(-x))
 
 
     def costf(self, yhat):
+        ''' compute the cost J for a given yhat (mean square error) '''
         z = []
         for i in range(self.nTrain):
             z.append(float(self.yTrain[i]-yhat[i])**2)
-        return (1/self.nTot)*sum(z)
+        return (1/self.nTrain)*sum(z)
 
 
     def __init__(self, x, y, n=1, m=1, p=0.8):
@@ -79,6 +80,7 @@ class simplenn:
 
     def _compute(self, theta):
         '''
+            Compute the yOut
             y = alpha*sigma(Wx+beta)+gamma
 
             theta[0] -- alpha
@@ -93,22 +95,43 @@ class simplenn:
             yout.append(theta[0]*zout+theta[2])
 
         return yout
-
+    
+    def _gradient(self, thetamin):
+        ''' compute the direction of every parameter of theta '''
+        #the increment rate is randomized, this should decrease in time
+        a = np.random.rand(4)
+        costold = self.costf(self._compute(thetamin))
+        theta = thetamin
+        for i in range(4):
+            theta[i] += a[i]
+            cost = self.costf(self._compute(theta))
+            #print(cost)
+            if((float(cost) - float(costold)) < 0):
+                continue            
+            else:
+                theta[i] -= 2*a[i]
+                cost = self.costf(self._compute(theta))
+                if((float(cost) - float(costold)) < 0):
+                    continue                
+                else:
+                    #dont change that param
+                    theta[i] += a[i]                
+        
+        return theta
+        
 
     def run(self):
+        ''' execute the regression '''
         failcount = 0
         theta = [self.alpha, self.beta, self.gamma, self.W]
         yhat = self._compute(theta)
         costmin = self.costf(yhat)
         thetamin = theta
         print("Initial value: "+str(float(costmin)))
-        while failcount < 20:
-            #ovviamente l'aggiornamento del tetha è da rifare (per questo c'è un numero alto di tentativi)
-            #bisogna usare i dati di validation per la funzione di costo invece di quelli di training
-            theta = [thetamin[0]+np.random.rand()-0.5,
-                     thetamin[1]+np.random.rand()-0.5,\
-                     thetamin[2]+np.random.rand()-0.5,\
-                     thetamin[3]+np.random.rand()-0.5]
+        while failcount < 10:
+            #TODO: use validation data
+            theta = self._gradient(thetamin)
+
             yhat = self._compute(theta)
             cost = self.costf(yhat)
             if float(cost) < float(costmin):
@@ -127,23 +150,26 @@ class simplenn:
         self.yOut = self._compute(thetamin)
 
 
-
-
 if __name__ == '__main__':
     print("Executing main test script")
 
-    # generazione dati affetti da rumore
-    x = np.arange(-3,3,0.1)
+    # random shaped data from a sigmodial function
+    tmp = np.random.rand()*10-5
+    x = np.arange(tmp,tmp+3,0.05)
     m = len(x)
-    y = 1/(1+np.e**(-x))
-    y += np.random.rand(m)/10   #uniform random
-
-    #plt.plot(y,x,'gx')
+    y = 1/(1+np.e**(-x))    
+    #y = np.sin(x)    
+    y += np.random.rand(m)/5   #uniform random
 
     nn = simplenn(x.tolist(), y.tolist())
-    yTrain=nn.yTrain
     nn.run()
-
-    plt.plot(y,x,'gx')
-    plt.plot(nn.yOut, nn.xTrain, 'r*')
-    #plt.legend("Dati in input","Regressione lineare")
+    
+    plt.figure()
+    plt.plot(x,y,'gx')
+    #plt.plot(nn.xTrain,nn.yOut,'r*')
+    
+    yModel = nn.alpha*nn.sigma(np.dot(nn.w, x)+nn.beta)+nn.gamma    
+    plt.plot(x,yModel,'-')    
+    
+    #plt.legend(["input data","nonlinear regression output","model output of given x"])
+    plt.legend(["input data","model output of given x"])
