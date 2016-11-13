@@ -42,9 +42,10 @@ class simplenn:
         x -- input (list)
         y -- output (list)
         n -- number of first-layer neuron
-        m -- number of entry
+        m -- number of features
         p -- fraction of training example used for training and not for validation
         '''
+        
         self.m = m
         self.n = n
         self.p = p
@@ -55,15 +56,16 @@ class simplenn:
 
         #Linear correlation with sigma_function
         #self.W = np.random.rand(n,self.m)
-        self.W = np.random.rand()
-        self.beta = np.random.rand()
-        self.alpha = np.random.rand()
+        self.W = np.random.rand(n*m)
+        self.beta = np.random.rand(n)
+        self.alpha = np.random.rand(n)
         self.gamma = np.random.rand()
 
         self.xTrain = []
         self.yTrain = []
 
         self.nTrain = int(np.floor(self.nTot*p))
+        
         #sampling
         for i in range(self.nTrain):
             indx = int(np.floor(np.random.rand()*(self.nTot-i)))
@@ -88,35 +90,45 @@ class simplenn:
             theta[2] -- gamma
             theta[3] -- W
         '''
-        yout = []
-        for i in range(self.nTrain):
-            inp = theta[3]*self.xTrain[i] + theta[1]
-            zout = self.sigma(inp)
-            yout.append(theta[0]*zout+theta[2])
-
+        yout = np.dot(self.sigma( np.outer(self.xTrain, theta[3]) + theta[1] ),theta[0])+theta[2]
         return yout
     
-    def _gradient(self, thetamin):
-        ''' compute the direction of every parameter of theta '''
+    def _gradient(self, thetamin, learning_rate=0.1):
+        ''' compute the direction of every parameter of theta (not so good) '''
         #the increment rate is randomized, this should decrease in time
-        a = np.random.rand(4)
+        #a = np.random.rand(4)
         costold = self.costf(self._compute(thetamin))
         theta = thetamin
         for i in range(4):
-            theta[i] += a[i]
-            cost = self.costf(self._compute(theta))
-            #print(cost)
-            if((float(cost) - float(costold)) < 0):
-                continue            
+            if type(theta[i]) != float:
+                for j in range(theta[i].shape[0]):
+                    theta[i][j] += learning_rate
+                    cost = self.costf(self._compute(theta))
+                    #print(cost)
+                    if((float(cost) - float(costold)) < 0):
+                        continue            
+                    else:
+                        theta[i][j] -= 2*learning_rate
+                        cost = self.costf(self._compute(theta))
+                        if((float(cost) - float(costold)) < 0):
+                            continue                
+                        else:
+                            #dont change that param
+                            theta[i][j] += learning_rate                
             else:
-                theta[i] -= 2*a[i]
+                theta[i] += learning_rate
                 cost = self.costf(self._compute(theta))
+                #print(cost)
                 if((float(cost) - float(costold)) < 0):
-                    continue                
+                    continue            
                 else:
-                    #dont change that param
-                    theta[i] += a[i]                
-        
+                    theta[i] -= 2*learning_rate
+                    cost = self.costf(self._compute(theta))
+                    if((float(cost) - float(costold)) < 0):
+                        continue                
+                    else:
+                        #dont change that param
+                        theta[i] += learning_rate 
         return theta
         
 
@@ -127,27 +139,31 @@ class simplenn:
         yhat = self._compute(theta)
         costmin = self.costf(yhat)
         thetamin = theta
+        incr = 1.0
         print("Initial value: "+str(float(costmin)))
-        while failcount < 10:
+        while failcount < 10 and incr > 0.00001:
             #TODO: use validation data
             theta = self._gradient(thetamin)
 
             yhat = self._compute(theta)
             cost = self.costf(yhat)
             if float(cost) < float(costmin):
-                print("New min: "+str(float(cost)))
+                incr = float(costmin) - float(cost)
+                #print("New min: "+str(float(cost)))
                 failcount = 0
                 thetamin = theta
                 costmin = cost
             else:
-                print(" + "+str(float(cost)))
+                #print(" + "+str(float(cost)))
                 failcount+=1
-
+        
         self.alpha = thetamin[0]
         self.beta = thetamin[1]
         self.gamma = thetamin[2]
         self.w = thetamin[3]
         self.yOut = self._compute(thetamin)
+        print("Cost min: ", costmin,"Theta: a=", self.alpha, "b=", self.beta, "W=", self.w, "g=", self.gamma)
+        return costmin
 
 
 if __name__ == '__main__':
@@ -155,21 +171,28 @@ if __name__ == '__main__':
 
     # random shaped data from a sigmodial function
     tmp = np.random.rand()*10-5
-    x = np.arange(tmp,tmp+3,0.05)
+    x = np.arange(tmp,tmp+7,0.01)
     m = len(x)
-    y = 1/(1+np.e**(-x))    
-    #y = np.sin(x)    
-    y += np.random.rand(m)/5   #uniform random
-
-    nn = simplenn(x.tolist(), y.tolist())
-    nn.run()
+    #y = 1/(1+np.e**(-x))    
+    y = np.sin(x)    
+    #y += np.random.rand(m)/2   #uniform random
+    y += np.random.normal(loc=0.0, scale=1.0, size=m)/2
     
     plt.figure()
-    plt.plot(x,y,'gx')
-    #plt.plot(nn.xTrain,nn.yOut,'r*')
+    plt.plot(x,y,'rx', label='Input data')
     
-    yModel = nn.alpha*nn.sigma(np.dot(nn.w, x)+nn.beta)+nn.gamma    
-    plt.plot(x,yModel,'-')    
-    
-    #plt.legend(["input data","nonlinear regression output","model output of given x"])
-    plt.legend(["input data","model output of given x"])
+    epoch = 5
+    costmin = float("inf")
+    for i in range(epoch):
+        nn = simplenn(x.tolist(), y.tolist(), n=3)
+        cost = nn.run()
+        yModel = np.dot(nn.sigma( np.outer(x , nn.w) + nn.beta ),nn.alpha)+nn.gamma    
+        plt.plot(x,yModel,'-', label='Model of the '+str(i+1)+"* iteration")
+        if cost < costmin:
+            costmin = cost
+            best = i
+            theta = [nn.alpha, nn.beta, nn.gamma, nn.w]
+            
+    plt.legend()
+    print("The best model is the "+str(best+1)+"* iteration")
+    print("Theta: "+str(theta))
