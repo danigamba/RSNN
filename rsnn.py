@@ -56,10 +56,10 @@ class simplenn:
 
         #Linear correlation with sigma_function
         #self.W = np.random.rand(n,self.m)
-        self.W = np.random.rand(n*m)
-        self.beta = np.random.rand(n)
-        self.alpha = np.random.rand(n)
-        self.gamma = np.random.rand()
+        self.W = np.random.rand(n*m)*2 - 1
+        self.beta = np.random.rand(n)*2 - 1
+        self.alpha = np.random.rand(n)*2 - 1
+        self.gamma = np.random.rand()*2 - 1
 
         self.xTrain = []
         self.yTrain = []
@@ -140,7 +140,7 @@ class simplenn:
         costmin = self.costf(yhat)
         thetamin = theta
         incr = 1.0
-        print("Initial value: "+str(float(costmin)))
+        #print("Initial value: "+str(float(costmin)))
         while failcount < 10 and incr > 0.00001:
             #TODO: use validation data
             theta = self._gradient(thetamin)
@@ -184,7 +184,7 @@ if __name__ == '__main__':
     epoch = 5
     costmin = float("inf")
     for i in range(epoch):
-        nn = simplenn(x.tolist(), y.tolist(), n=3)
+        nn = simplenn(x.tolist(), y.tolist(), n=3)  #n = number of first layer neurons
         cost = nn.run()
         yModel = np.dot(nn.sigma( np.outer(x , nn.w) + nn.beta ),nn.alpha)+nn.gamma    
         plt.plot(x,yModel,'-', label='Model of the '+str(i+1)+"* iteration")
@@ -192,7 +192,8 @@ if __name__ == '__main__':
             costmin = cost
             best = i
             theta = [nn.alpha, nn.beta, nn.gamma, nn.w]
-            
+        del nn
+        
     plt.legend()
     print("The best model is the "+str(best+1)+"* iteration")
     print("Theta: "+str(theta))
