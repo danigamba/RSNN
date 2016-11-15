@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Nov  8 12:16:01 2016
+
+If you use IPython and want to see the full interactive graph use
+%matplotlib qt
 """
 
 import numpy as np
